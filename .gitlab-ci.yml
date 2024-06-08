@@ -1,0 +1,31 @@
+stages:
+  - build
+  - deploy
+
+.build-container-buildah:
+  stage: build
+  tags:
+    # Build on the Server, for fast uploads
+    - internal-docker
+  image: quay.io/buildah/stable
+  variables:
+    ADDITIONAL_BUILD_ARGS: ""
+    # Based on the previous vars
+    IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+    # Reqiured for buildah to work
+    STORAGE_DRIVER: "vfs"
+    BUILDAH_FORMAT: "docker"
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:build\r\e[0KBuilding $IMAGE_NAME..."
+    - buildah build -t $IMAGE_NAME $CI_PROJECT_DIR/
+    - echo -e "\e[0Ksection_end:`date +%s`:build\r\e[0K"
+    - echo -e "\e[0Ksection_start:`date +%s`:push\r\e[0KPushing $IMAGE_NAME..."
+    - buildah push $IMAGE_NAME
+    - echo -e "\e[0Ksection_end:`date +%s`:push\r\e[0K"
+
+build-docker:
+  extends: .build-container-buildah
+  variables:
+    CONTEXT: "."
